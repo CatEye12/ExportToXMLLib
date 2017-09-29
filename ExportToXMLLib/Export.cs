@@ -8,23 +8,23 @@ using System.Linq;
 using System.Xml;
 using System.Text;
 using System.IO;
+using ExportToXMLLib;
 
 namespace ExportToXMLLib
 {
     public class Export
     {
-        private const int BoomId = 8;
+        const int BoomId = 8;
         private static object mLockObj = new object();
-        private DBConnection con = DBConnection.DBProp;
-
+        DBConnection con = DBConnection.DBProp;
+        
         private List<string> conf;
         private List<MyBomShell> AssmblyBom;
         private IEnumerable<MyBomShell> fullDataSpecParts;
         private List<MyBomShell> fullDataSpecAsmblAndParts;
         private string filePath;
         private string pathToSave = @"\\pdmsrv\XML\";
-
-
+        
         public Export(string filePath)
         {
             this.filePath = filePath;
@@ -51,7 +51,7 @@ namespace ExportToXMLLib
 
         private void ExportPartsToXML()
         {
-            foreach (var part in fullDataSpecParts.Where(x=>x.FileType.Equals("sldprt")).GroupBy(x=>x.FileName))
+            foreach (var part in fullDataSpecParts.GroupBy(x => x.FileName))
             {
                 string name = Path.GetFileNameWithoutExtension(part.Key);
                 var myXml = new XmlTextWriter(pathToSave + name + ".xml", Encoding.UTF8);
@@ -167,17 +167,18 @@ namespace ExportToXMLLib
                 myXml.Close();
             }
         }
-        private void ExportToXMLWithSubAsmbl(List<MyBomShell> list, string nameAddintion)
+        private void ExportToXMLWithSubAsmbl(List<MyBomShell> list, string nameAddintion, int param)
         {
+            int currentTreeLevel;
             int helpCount = 0;
-            int helpLevel = 0;
+            int previousTreeLevel = 0;
             string type = null;
-            bool isThereSomeAsm = false;//if we need upload only details
             bool p = false;
+            bool f = false;
 
             int l = Convert.ToInt32(list[0].FileName.Count()) - 7;
             string fileName = list[0].FileName.Substring(0, l);
-
+            
 
             var myXml = new XmlTextWriter(pathToSave + fileName + nameAddintion + ".xml", Encoding.UTF8);
             myXml.WriteStartDocument();
@@ -198,48 +199,50 @@ namespace ExportToXMLLib
 
             foreach (var it in list)
             {
+                currentTreeLevel = it.TreeLevel + param;
+
                 if (helpCount != 0)
-                {
-                    if (isThereSomeAsm)
-                    {
-                        if (helpLevel > it.TreeLevel && type == "sldasm")
+                {                    
+                        if (previousTreeLevel > currentTreeLevel && type == "sldasm")//переход на уровень выше
+                        { 
+                            myXml.WriteEndElement(); //configurations 
+                            myXml.WriteEndElement(); //configurations 
+                            myXml.WriteEndElement(); //references
+                            myXml.WriteEndElement(); //document alias 
+                            f = true;
+                        }
+                        else if (previousTreeLevel < currentTreeLevel) //следующий элемент вложенный
                         {
-                            if (helpLevel != 0)
+                            
+                        }
+                        if (type == "sldasm" && it.FileType == type && previousTreeLevel == currentTreeLevel)// если две сборки подряд одного уровня
+                        {
+                            if (currentTreeLevel != 0)
                             {
-                                myXml.WriteEndElement();//configurations 
+                               // myXml.WriteEndElement();//references
+                                myXml.WriteEndElement();//configurations
+                                p = true;
                             }
                             else
-                            {
-                                myXml.WriteEndElement();//configurations 
-                                myXml.WriteEndElement(); //references
-                                myXml.WriteEndElement();//document alias  
-                            }
-                        }
-                        else if (helpLevel < it.TreeLevel) //следующий элемент вложенный
-                        {
-
-                        }
-                        if (type == "sldasm" && it.FileType == type && helpLevel == it.TreeLevel)// если две сборки подряд одного уровня
-                        {
-                            if (helpLevel == 0)
                             {
                                 myXml.WriteEndElement();//document alias
                                 myXml.WriteEndElement();//references
                                 myXml.WriteEndElement();//configurations
                                 p = true;
-                            }
+                            }         
                         }
-                        if (type == "sldasm" && helpLevel == it.TreeLevel)
+                        if (type == "sldasm" && previousTreeLevel == currentTreeLevel)
                         {
-                            if(p == false)
-                            { 
-                                //myXml.WriteEndElement(); //references
+                            if (p == false)
+                            {
                                 myXml.WriteEndElement();//configurations
                             }
                         }
-                        if (it.TreeLevel == 0)
+                    if (currentTreeLevel == 0)
+                    {
+                        if (p == false)
                         {
-                            if (p == false)
+                            if(f == false)
                             {
                                 myXml.WriteEndElement();//document alias
                                 myXml.WriteEndElement();//references
@@ -247,9 +250,10 @@ namespace ExportToXMLLib
                             }
                         }
                     }
+
                     helpCount--;
                 }
-                
+
                 #region XML
                 // Конфигурация
                 myXml.WriteStartElement("configuration");
@@ -332,18 +336,12 @@ namespace ExportToXMLLib
                 myXml.WriteAttributeString("name", "Идентификатор");
                 myXml.WriteAttributeString("value", "");
                 myXml.WriteEndElement();
-                
+
                 #endregion
 
                 if (it.FileType == "sldasm")
-                {                   
-                    if (helpCount == 1)
-                    {
-                        myXml.WriteEndElement();//document alias
-                        myXml.WriteEndElement();//references
-                        myXml.WriteEndElement();//configurations
-                    }
-                    if (it.TreeLevel == 0)
+                {
+                    if (currentTreeLevel == 0)
                     {
                         myXml.WriteStartElement("references");
                         myXml.WriteStartElement("document");
@@ -352,18 +350,17 @@ namespace ExportToXMLLib
                     }
 
                     type = "sldasm";
-                    isThereSomeAsm = true;
                 }
-                if(it.FileType == "sldprt")
+                else if (it.FileType == "sldprt")
                 {
                     myXml.WriteEndElement();//configurations
                     type = "sldprt";
                 }
                 helpCount++;
-                helpLevel = it.TreeLevel;
+                previousTreeLevel = currentTreeLevel;
 
             }
-            
+
             myXml.WriteEndElement(); // ' элемент DOCUMENT
             myXml.WriteEndElement(); // ' элемент TRANSACTION
             myXml.WriteEndElement(); // ' элемент TRANSACTIONS
@@ -477,15 +474,14 @@ namespace ExportToXMLLib
         private IEnumerable<MyBomShell> GetFullSpecification()
         {
 
-            IEnumerable<MyBomShell> spec = from data in AssmblyBom
+            IEnumerable<MyBomShell> spec = from data in AssmblyBom where (data.FileType == "sldprt")
                                          join parts in con.ViewParts
                                          on new { id = data.IdPdm, conf = data.Configuration, version = (int)data.LastVersion}
                                         equals new { id = (int)parts.IDPDM, conf = parts.ConfigurationName, version = parts.Version}
                                         into fullSpec
                                         from sp in fullSpec
 
-                               select new MyBomShell
-                               { CMIMaterial = data.CMIMaterial,
+                               select new MyBomShell { CMIMaterial = data.CMIMaterial,
                                    CodeMaterial = data.CodeMaterial,
                                    Configuration = data.RefConfig,
                                    Description = data.Description,
@@ -522,77 +518,93 @@ namespace ExportToXMLLib
         }
 
 
-        private List<MyBomShell> AssmblAndAll_1_Level()
+        private void AssmblAndAll_1_Level()
         {
-            List<MyBomShell> temp = new List<MyBomShell>();
+            int maxAssmblLevel;
             fullDataSpecAsmblAndParts = new List<MyBomShell>();
+            List<MyBomShell> listForEveryPartTemp = new List<MyBomShell>();
 
-            foreach (var item in AssmblyBom)
+            GetMaxTreeLevel(out maxAssmblLevel);
+
+            List<List<MyBomShell>> g = new List<List<MyBomShell>>();
+            List<string> namesItem = new List<string> { };
+            int index = 0;
+            foreach (var item in AssmblyBom.Where(x=>x.FileType == "sldasm").GroupBy(x => x.FileName))
             {
-                if (item.FileType == "sldasm" && item.TreeLevel == 0)
-                {
-                    fullDataSpecAsmblAndParts.Add(item);
-                }
-                else if (item.FileType == "sldasm" && item.TreeLevel == 1)
-                {
-                    fullDataSpecAsmblAndParts.Add(item);
-                    temp.Add(item);
-                }
-                else
-                {
-                    if (item.TreeLevel == 1)
-                    {
-                        var spec = from part in con.ViewParts
-                                   where part.IDPDM == item.IdPdm
-                                   where part.ConfigurationName == item.Configuration
-                                   where part.Version == item.LastVersion
+                g.Add(new List<MyBomShell>());
+                namesItem.Add(item.Key);
+            }
 
-                                   select new MyBomShell
-                                   {
-                                       CMIMaterial = item.CMIMaterial,
-                                       CodeMaterial = item.CodeMaterial,
-                                       Configuration = item.RefConfig,
-                                       Description = item.Description,
-                                       ErpCode = item.ErpCode,
-                                       FileName = item.FileName,
-                                       FilePath = item.FilePath,
-                                       FileType = item.FileType,
-                                       FolderPath = item.FolderPath,
-                                       Format = item.Format,
-                                       IdPdm = item.IdPdm,
-                                       LastVersion = item.LastVersion,
-                                       ListThickness = part.Thickness.ToString(),
-                                       Material = item.Material,
-                                       Note = item.Note,
-                                       ObjectType = item.ObjectType,
-                                       Partition = item.Partition,
-                                       PartNumber = item.PartNumber,
-                                       Quantity = item.Quantity,
-                                       RefConfig = item.Configuration,
-                                       SummMaterial = item.SummMaterial,
-                                       TreeLevel = item.TreeLevel,
-                                       Weight = item.Weight,
-                                       Bend = part.Bend.ToString(),
-                                       PaintX = part.PaintX.ToString(),
-                                       PaintY = part.PaintY.ToString(),
-                                       PaintZ = part.PaintZ.ToString(),
-                                       DXF = part.DXF,
-                                       SurfaceArea = part.SurfaceArea.ToString(),
-                                       WorkpieceX = part.WorkpieceX.ToString(),
-                                       WorkpieceY = part.WorkpieceY.ToString()
-                                   };
-                        foreach (var it in spec)
+            for (int i = 0; i < (maxAssmblLevel + 1); i++)//по каждому уровню
+            {
+                    foreach (var item in AssmblyBom)
+                    {
+                        if (item.FileType == "sldasm" && (item.TreeLevel == i || item.TreeLevel == (i + 1)))
                         {
-                            fullDataSpecAsmblAndParts.Add(it);
+                            if(item.TreeLevel == i)
+                            {
+                                index = namesItem.IndexOf(item.FileName);
+                            }
+                            g[index].Add(item);
+                        }
+                        else if (item.FileType == "sldprt" && (item.TreeLevel == (i + 1)))
+                        {
+                            var spec = from part in con.ViewParts
+                                       where part.IDPDM == item.IdPdm
+                                       where part.ConfigurationName == item.Configuration
+                                       where part.Version == item.LastVersion
+
+                                       select new MyBomShell
+                                       {
+                                           #region
+                                           CMIMaterial = item.CMIMaterial,
+                                           CodeMaterial = item.CodeMaterial,
+                                           Configuration = item.RefConfig,
+                                           Description = item.Description,
+                                           ErpCode = item.ErpCode,
+                                           FileName = item.FileName,
+                                           FilePath = item.FilePath,
+                                           FileType = item.FileType,
+                                           FolderPath = item.FolderPath,
+                                           Format = item.Format,
+                                           IdPdm = item.IdPdm,
+                                           LastVersion = item.LastVersion,
+                                           ListThickness = part.Thickness.ToString(),
+                                           Material = item.Material,
+                                           Note = item.Note,
+                                           ObjectType = item.ObjectType,
+                                           Partition = item.Partition,
+                                           PartNumber = item.PartNumber,
+                                           Quantity = item.Quantity,
+                                           RefConfig = item.Configuration,
+                                           SummMaterial = item.SummMaterial,
+                                           TreeLevel = item.TreeLevel,
+                                           Weight = item.Weight,
+                                           Bend = part.Bend.ToString(),
+                                           PaintX = part.PaintX.ToString(),
+                                           PaintY = part.PaintY.ToString(),
+                                           PaintZ = part.PaintZ.ToString(),
+                                           DXF = part.DXF,
+                                           SurfaceArea = part.SurfaceArea.ToString(),
+                                           WorkpieceX = part.WorkpieceX.ToString(),
+                                           WorkpieceY = part.WorkpieceY.ToString()
+                                           #endregion
+                                       };
+                            listForEveryPartTemp = spec.ToList();
+                            foreach (var it in listForEveryPartTemp)
+                            {
+                                g[index].Add(item);
+                            }
+                            listForEveryPartTemp.Clear();
                         }
                     }
-                }
+                
             }
-            foreach (var item in temp.GroupBy(x=>x.FileName))
-            {
-                ExportToXMLWithSubAsmbl(item.ToList(), "");
+            for(int i = 0; i < g.Count; i++)
+            {                
+                ExportToXMLWithSubAsmbl(g[i], "", (0 - i));
             }
-            return fullDataSpecAsmblAndParts;
+            g.Clear();
         }
         private List<MyBomShell> AssmblAndAllDetails()
         {
@@ -652,8 +664,8 @@ namespace ExportToXMLLib
             }
             return fullDataSpecAsmblAndParts;
         }
-        
-        
+
+
 
         public void XML()
         {
@@ -664,10 +676,27 @@ namespace ExportToXMLLib
             else
             {
                 ExportPartsToXML();
-                ExportToXMLWithSubAsmbl(AssmblAndAll_1_Level(), "");
-                ExportToXMLWithSubAsmbl(AssmblAndAllDetails(), " Parts");
+                Console.WriteLine("ExportPartsToXML();");
+
+                AssmblAndAll_1_Level();
+                Console.WriteLine("AssmblAndAll_1_Level()");
+
+                ExportToXMLWithSubAsmbl(AssmblAndAllDetails(), " Parts", 0);
+                Console.WriteLine("AssmblAndAllDetails()");
             }
         }
+
+        private void GetMaxTreeLevel(out int max)
+        {
+            List<int> list = new List<int>();
+
+            foreach (var item in AssmblyBom.Where(x=>x.FileType == "sldasm"))
+            {
+                list.Add(item.TreeLevel);
+            }
+            max = list.Max();
+        }
+        
     }
 
     public class EdmVaultSingleton
