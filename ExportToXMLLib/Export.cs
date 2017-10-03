@@ -8,7 +8,6 @@ using System.Linq;
 using System.Xml;
 using System.Text;
 using System.IO;
-using ExportToXMLLib;
 
 namespace ExportToXMLLib
 {
@@ -199,7 +198,7 @@ namespace ExportToXMLLib
 
             foreach (var it in list)
             {
-                currentTreeLevel = it.TreeLevel + param;
+                currentTreeLevel = (int)it.TreeLevel + param;
 
                 if (helpCount != 0)
                 {                    
@@ -219,7 +218,7 @@ namespace ExportToXMLLib
                         {
                             if (currentTreeLevel != 0)
                             {
-                               // myXml.WriteEndElement();//references
+                                // myXml.WriteEndElement();//references
                                 myXml.WriteEndElement();//configurations
                                 p = true;
                             }
@@ -238,7 +237,7 @@ namespace ExportToXMLLib
                                 myXml.WriteEndElement();//configurations
                             }
                         }
-                    if (currentTreeLevel == 0)
+                    if (currentTreeLevel == 0 && type == "sldprt")
                     {
                         if (p == false)
                         {
@@ -438,8 +437,8 @@ namespace ExportToXMLLib
                                 Description = eachItem[2].ToString(),
                                 Material = eachItem[3].ToString(),
                                 CMIMaterial = eachItem[4].ToString(),
-                                ListThickness = eachItem[5].ToString(),
-                                Quantity = Convert.ToDecimal(eachItem[6]),//?
+                                //ListThickness = Convert.ToDecimal(eachItem[5]),
+                                Quantity =(eachItem[6]).ToString(),//?
                                 FileType = eachItem[7].ToString(),
                                 Configuration = refConfig,
                                 LastVersion = Convert.ToInt32(eachItem[9].ToString()),//?
@@ -473,50 +472,50 @@ namespace ExportToXMLLib
         }
         private IEnumerable<MyBomShell> GetFullSpecification()
         {
-
-            IEnumerable<MyBomShell> spec = from data in AssmblyBom where (data.FileType == "sldprt")
+            IEnumerable<MyBomShell> spec = from data in AssmblyBom
                                          join parts in con.ViewParts
-                                         on new { id = data.IdPdm, conf = data.Configuration, version = (int)data.LastVersion}
-                                        equals new { id = (int)parts.IDPDM, conf = parts.ConfigurationName, version = parts.Version}
-                                        into fullSpec
-                                        from sp in fullSpec
+                                         on new { id = data.IdPdm, conf = data.Configuration, version = (int)data.LastVersion }
+                                         equals new { id = parts.IDPDM , conf = parts.ConfigurationName, version = parts.Version }
+                                         into fullSpec
+                                         from f in fullSpec.DefaultIfEmpty()
+                                          
 
-                               select new MyBomShell { CMIMaterial = data.CMIMaterial,
-                                   CodeMaterial = data.CodeMaterial,
-                                   Configuration = data.RefConfig,
-                                   Description = data.Description,
-                                   ErpCode = data.ErpCode,
-                                   FileName = data.FileName,
-                                   FilePath = data.FilePath,
-                                   FileType = data.FileType,
-                                   FolderPath = data.FolderPath,
-                                   Format = data.Format,
-                                   IdPdm = data.IdPdm,
-                                   LastVersion = data.LastVersion,
-                                   ListThickness = sp.Thickness.ToString(),
-                                   Material = data.Material,
-                                   Note = data.Note,
-                                   ObjectType = data.ObjectType,
-                                   Partition = data.Partition,
-                                   PartNumber = data.PartNumber,
-                                   Quantity = data.Quantity,
-                                   RefConfig = data.Configuration,
-                                   SummMaterial = data.SummMaterial,
-                                   TreeLevel = data.TreeLevel,
-                                   Weight = data.Weight,
-                                   Bend = sp.Bend.ToString(),
-                                   PaintX = sp.PaintX.ToString(),
-                                   PaintY = sp.PaintY.ToString(),
-                                   PaintZ = sp.PaintZ.ToString(),
-                                   DXF = sp.DXF,
-                                   SurfaceArea = sp.SurfaceArea.ToString(),
-                                   WorkpieceX = sp.WorkpieceX.ToString(),
-                                   WorkpieceY = sp.WorkpieceY.ToString()
-                               };
-
+                                         select new MyBomShell
+                                         {
+                                             CMIMaterial = data.CMIMaterial,
+                                             CodeMaterial = data.CodeMaterial,
+                                             Configuration = data.RefConfig,
+                                             Description = data.Description,
+                                             ErpCode = data.ErpCode,
+                                             FileName = data.FileName,
+                                             FilePath = data.FilePath,
+                                             FileType = data.FileType,
+                                             FolderPath = data.FolderPath,
+                                             Format = data.Format,
+                                             IdPdm = (f == null) ? 0 : f.IDPDM,
+                                             LastVersion = (data.LastVersion == null) ? 0 : data.LastVersion,
+                                             ListThickness = (f == null) ? string.Empty : f.Thickness.ToString(),
+                                             Material = data.Material,
+                                             Note = data.Note,
+                                             ObjectType = data.ObjectType,
+                                             Partition = data.Partition,
+                                             PartNumber = data.PartNumber,
+                                             Quantity = data.Quantity,
+                                             RefConfig = data.Configuration,
+                                             SummMaterial = data.SummMaterial,
+                                             TreeLevel = (f == null) ? 0 : data.TreeLevel,
+                                             Weight = data.Weight,
+                                             Bend = (f == null) ? string.Empty : f.Bend.ToString(),
+                                             PaintX = (f == null) ? string.Empty : f.PaintX.ToString(),
+                                             PaintY = (f == null) ? string.Empty : f.PaintY.ToString(),
+                                             PaintZ = (f == null) ? string.Empty : f.PaintZ.ToString(),
+                                             DXF = (f == null) ? string.Empty : f.DXF,
+                                             SurfaceArea = (f == null) ? string.Empty : f.SurfaceArea.ToString(),
+                                             WorkpieceX = (f == null) ? string.Empty : f.WorkpieceX.ToString(),
+                                             WorkpieceY = (f == null) ? string.Empty : f.WorkpieceY.ToString()
+                                         };            
             return spec;
         }
-
 
         private void AssmblAndAll_1_Level()
         {
@@ -549,60 +548,13 @@ namespace ExportToXMLLib
                         }
                         else if (item.FileType == "sldprt" && (item.TreeLevel == (i + 1)))
                         {
-                            var spec = from part in con.ViewParts
-                                       where part.IDPDM == item.IdPdm
-                                       where part.ConfigurationName == item.Configuration
-                                       where part.Version == item.LastVersion
-
-                                       select new MyBomShell
-                                       {
-                                           #region
-                                           CMIMaterial = item.CMIMaterial,
-                                           CodeMaterial = item.CodeMaterial,
-                                           Configuration = item.RefConfig,
-                                           Description = item.Description,
-                                           ErpCode = item.ErpCode,
-                                           FileName = item.FileName,
-                                           FilePath = item.FilePath,
-                                           FileType = item.FileType,
-                                           FolderPath = item.FolderPath,
-                                           Format = item.Format,
-                                           IdPdm = item.IdPdm,
-                                           LastVersion = item.LastVersion,
-                                           ListThickness = part.Thickness.ToString(),
-                                           Material = item.Material,
-                                           Note = item.Note,
-                                           ObjectType = item.ObjectType,
-                                           Partition = item.Partition,
-                                           PartNumber = item.PartNumber,
-                                           Quantity = item.Quantity,
-                                           RefConfig = item.Configuration,
-                                           SummMaterial = item.SummMaterial,
-                                           TreeLevel = item.TreeLevel,
-                                           Weight = item.Weight,
-                                           Bend = part.Bend.ToString(),
-                                           PaintX = part.PaintX.ToString(),
-                                           PaintY = part.PaintY.ToString(),
-                                           PaintZ = part.PaintZ.ToString(),
-                                           DXF = part.DXF,
-                                           SurfaceArea = part.SurfaceArea.ToString(),
-                                           WorkpieceX = part.WorkpieceX.ToString(),
-                                           WorkpieceY = part.WorkpieceY.ToString()
-                                           #endregion
-                                       };
-                            listForEveryPartTemp = spec.ToList();
-                            foreach (var it in listForEveryPartTemp)
-                            {
-                                g[index].Add(item);
-                            }
-                            listForEveryPartTemp.Clear();
+                            g[index].Add(item);
                         }
                     }
-                
             }
             for(int i = 0; i < g.Count; i++)
             {                
-                ExportToXMLWithSubAsmbl(g[i], "", (0 - i));
+                ExportToXMLWithSubAsmbl(g[i], "", (0 - (int)g[i][0].TreeLevel));
             }
             g.Clear();
         }
@@ -615,58 +567,15 @@ namespace ExportToXMLLib
                 {
                     fullDataSpecAsmblAndParts.Add(item);
                 }
-                else if (item.Partition == "Детали" || string.IsNullOrEmpty(item.Partition) || item.FileType.Equals("sldprt"))
+                else if (item.FileType.Equals("sldprt"))
                 {
-                    var spec = from part in con.ViewParts
-                            where part.IDPDM == item.IdPdm
-                            where part.ConfigurationName == item.Configuration
-                            where part.Version == item.LastVersion
+                    
 
-                            select new MyBomShell
-                            {
-                                CMIMaterial = item.CMIMaterial,
-                                CodeMaterial = item.CodeMaterial,
-                                Configuration = item.RefConfig,
-                                Description = item.Description,
-                                ErpCode = item.ErpCode,
-                                FileName = item.FileName,
-                                FilePath = item.FilePath,
-                                FileType = item.FileType,
-                                FolderPath = item.FolderPath,
-                                Format = item.Format,
-                                IdPdm = item.IdPdm,
-                                LastVersion = item.LastVersion,
-                                ListThickness = part.Thickness.ToString(),
-                                Material = item.Material,
-                                Note = item.Note,
-                                ObjectType = item.ObjectType,
-                                Partition = item.Partition,
-                                PartNumber = item.PartNumber,
-                                Quantity = item.Quantity,
-                                RefConfig = item.Configuration,
-                                SummMaterial = item.SummMaterial,
-                                TreeLevel = item.TreeLevel,
-                                Weight = item.Weight,
-                                Bend = part.Bend.ToString(),
-                                PaintX = part.PaintX.ToString(),
-                                PaintY = part.PaintY.ToString(),
-                                PaintZ = part.PaintZ.ToString(),
-                                DXF = part.DXF,
-                                SurfaceArea = part.SurfaceArea.ToString(),
-                                WorkpieceX = part.WorkpieceX.ToString(),
-                                WorkpieceY = part.WorkpieceY.ToString()
-                            };
-                            foreach (var it in spec)
-                            {
-                                fullDataSpecAsmblAndParts.Add(it);
-                            }
+                    fullDataSpecAsmblAndParts.Add(item);
                 }
             }
             return fullDataSpecAsmblAndParts;
         }
-
-
-
         public void XML()
         {
             if (filePath.ToUpper().Contains("SLDPRT"))
@@ -676,23 +585,19 @@ namespace ExportToXMLLib
             else
             {
                 ExportPartsToXML();
-                Console.WriteLine("ExportPartsToXML();");
 
                 AssmblAndAll_1_Level();
-                Console.WriteLine("AssmblAndAll_1_Level()");
 
                 ExportToXMLWithSubAsmbl(AssmblAndAllDetails(), " Parts", 0);
-                Console.WriteLine("AssmblAndAllDetails()");
             }
         }
-
         private void GetMaxTreeLevel(out int max)
         {
             List<int> list = new List<int>();
 
             foreach (var item in AssmblyBom.Where(x=>x.FileType == "sldasm"))
             {
-                list.Add(item.TreeLevel);
+                list.Add((int)item.TreeLevel);
             }
             max = list.Max();
         }
