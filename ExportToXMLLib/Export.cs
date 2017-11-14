@@ -210,10 +210,10 @@ namespace ExportToXMLLib
                             myXml.WriteEndElement(); //document alias 
                             f = true;
                         }
-                        else if (previousTreeLevel < currentTreeLevel) //следующий элемент вложенный
+                        /*else if (previousTreeLevel < currentTreeLevel) //следующий элемент вложенный
                         {
                             
-                        }
+                        }*/
                         if (type == "sldasm" && it.FileType == type && previousTreeLevel == currentTreeLevel)// если две сборки подряд одного уровня
                         {
                             if (currentTreeLevel != 0)
@@ -249,7 +249,7 @@ namespace ExportToXMLLib
                             }
                         }
                     }
-
+                    p = false;
                     helpCount--;
                 }
 
@@ -437,7 +437,7 @@ namespace ExportToXMLLib
                                 Description = eachItem[2].ToString(),
                                 Material = eachItem[3].ToString(),
                                 CMIMaterial = eachItem[4].ToString(),
-                                //ListThickness = Convert.ToDecimal(eachItem[5]),
+                                ListThickness = eachItem[5].ToString(),
                                 Quantity =(eachItem[6]).ToString(),//?
                                 FileType = eachItem[7].ToString(),
                                 Configuration = refConfig,
