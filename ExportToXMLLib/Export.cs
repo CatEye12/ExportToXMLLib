@@ -59,28 +59,39 @@ namespace ExportToXMLLib
 
         private void ExportParts(IEnumerable<MyBomShell> fullDataSpec)
         {
-            var grouped = fullDataSpec.GroupBy(x => x.FileName);
             string tempPath = string.Empty;
-            MyBomShell tempBom;
-
-            foreach (var bomForOneDoc in grouped)
+            MyBomShell tempBom = null;
+            IEnumerable<IGrouping<string, MyBomShell>> grouped = default(IEnumerable<IGrouping<string, MyBomShell>>);
+            try
             {
-                if (bomForOneDoc.Key.ToUpper().Contains(".SLDPRT"))
-                {
-                    tempBom = bomForOneDoc.ElementAt<MyBomShell>(0);
-                    if (tempBom != null)
-                    {
-                        tempPath = Path.Combine(tempBom.FilePath, tempBom.FileName);
-                    }
-                    Export ex = new Export(tempPath);
+                grouped = fullDataSpec.GroupBy(x => x.FileName);
 
-                    foreach (var docWithAllConfigs in ex.fullDataSpecParts)
+
+
+                foreach (var bomForOneDoc in grouped)
+                {
+                    if (bomForOneDoc.Key.ToUpper().Contains(".SLDPRT"))
                     {
-                        ex.ExportPartsToXML2(bomForOneDoc);
+                        tempBom = bomForOneDoc.ElementAt<MyBomShell>(0);
+                        if (tempBom != null)
+                        {
+                            tempPath = Path.Combine(tempBom.FilePath, tempBom.FileName);
+                        }
+                        Export ex = new Export(tempPath);
+
+                        foreach (var docWithAllConfigs in ex.fullDataSpecParts)
+                        {
+                            ex.ExportPartsToXML2(bomForOneDoc);
+                        }
                     }
                 }
             }
-
+            catch (Exception ex)
+            {
+                MessageObserver.Instance.SetMessage("Failed to ExportToXMLWithSubAsmbl, with error:  " + ex.Message + System.Environment.NewLine +
+                    tempPath, MessageType.Error);
+            }
+            
 
             //foreach (var bomForOneDoc in fullDataSpec)
             //{
@@ -99,15 +110,149 @@ namespace ExportToXMLLib
         {
             foreach (var part in fullDataSpecParts.GroupBy(x => x.FileName))
             {
-                string name = Path.GetFileNameWithoutExtension(part.Key);
+                try
+                {
+                    string name = Path.GetFileNameWithoutExtension(part.Key);
+                    var myXml = new XmlTextWriter(pathToSave + name + ".xml", Encoding.UTF8);
+                    myXml.WriteStartDocument();
+                    myXml.Formatting = Formatting.Indented;
+
+                    myXml.WriteStartElement("xml");
+                    myXml.WriteStartElement("transactions");
+                    myXml.WriteStartElement("transaction");
+
+
+                    myXml.WriteAttributeString("vaultName", "Vents-PDM");
+                    myXml.WriteAttributeString("type", "");
+                    myXml.WriteAttributeString("date", "");
+
+                    // document
+                    myXml.WriteStartElement("document");
+                    myXml.WriteAttributeString("pdmweid", "");
+                    myXml.WriteAttributeString("aliasset", "Export To ERP");
+
+                    foreach (var item in part)
+                    {
+
+                        #region XML
+                        // Конфигурация
+                        myXml.WriteStartElement("configuration");
+                        myXml.WriteAttributeString("name", item.Configuration);
+
+                        // Материал
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "Материал");
+                        myXml.WriteAttributeString("value", item.Material.ToString());
+                        myXml.WriteEndElement();
+
+                        // Наименование
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "Наименование");
+                        myXml.WriteAttributeString("value", item.Description);
+                        myXml.WriteEndElement();
+
+                        // Обозначение
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "Обозначение");
+                        myXml.WriteAttributeString("value", item.PartNumber);
+                        myXml.WriteEndElement();
+
+                        // Площадь покрытия
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "Площадь покрытия");
+                        myXml.WriteAttributeString("value", item.SurfaceArea.ToString());
+                        myXml.WriteEndElement();
+
+                        // Код_Материала
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "Код_Материала");
+                        myXml.WriteAttributeString("value", item.CodeMaterial.ToString());
+                        myXml.WriteEndElement();
+
+                        // Длина граничной рамки
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "Длина граничной рамки");
+                        myXml.WriteAttributeString("value", item.WorkpieceX.ToString());
+                        myXml.WriteEndElement();
+
+                        // Ширина граничной рамки
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "Ширина граничной рамки");
+                        myXml.WriteAttributeString("value", item.WorkpieceY.ToString());
+                        myXml.WriteEndElement();
+
+                        // Сгибы
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "Сгибы");
+                        myXml.WriteAttributeString("value", item.Bend.ToString());
+                        myXml.WriteEndElement();
+
+                        // Толщина листового металла
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "Толщина листового металла");
+                        myXml.WriteAttributeString("value", item.ListThickness.ToString());
+                        myXml.WriteEndElement();
+
+                        // PaintX
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "PaintX");
+                        myXml.WriteAttributeString("value", item.PaintX.ToString());
+                        myXml.WriteEndElement();
+
+                        // PaintY
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "PaintY");
+                        myXml.WriteAttributeString("value", item.PaintY.ToString());
+                        myXml.WriteEndElement();
+
+                        // PaintZ
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "PaintZ");
+                        myXml.WriteAttributeString("value", item.PaintZ.ToString());
+                        myXml.WriteEndElement();
+
+                        // Версия
+                        myXml.WriteStartElement("attribute");
+                        myXml.WriteAttributeString("name", "Версия");
+                        myXml.WriteAttributeString("value", item.LastVersion.ToString());
+                        myXml.WriteEndElement();
+                        myXml.WriteEndElement();// ' элемент Configuration name
+                        #endregion
+                    }
+
+                    myXml.WriteEndElement(); // ' элемент DOCUMENT
+                    myXml.WriteEndElement(); // ' элемент TRANSACTION
+                    myXml.WriteEndElement(); // ' элемент TRANSACTIONS
+                    myXml.WriteEndElement(); // ' элемент XML
+
+                    myXml.Flush();
+                    myXml.Close();
+                }
+                catch (Exception ex)
+                {
+                    MessageObserver.Instance.SetMessage("Failed to ExportPartsToXML, with error:  " + ex.Message + Environment.NewLine + part.Key, MessageType.Error);
+                }
+            }
+        }
+
+        /// <summary>
+        ///  Exports one doc with all configs into 1 xml file
+        /// </summary>
+        /// <param name="listBomShell"></param>
+        private void ExportPartsToXML2(IGrouping<string, MyBomShell> listBomShell)
+        {
+            string filePathForLog = string.Empty;
+            try
+            {
+                string name = Path.GetFileNameWithoutExtension(listBomShell.Key);
+
                 var myXml = new XmlTextWriter(pathToSave + name + ".xml", Encoding.UTF8);
                 myXml.WriteStartDocument();
                 myXml.Formatting = Formatting.Indented;
-            
+
                 myXml.WriteStartElement("xml");
                 myXml.WriteStartElement("transactions");
                 myXml.WriteStartElement("transaction");
-
 
                 myXml.WriteAttributeString("vaultName", "Vents-PDM");
                 myXml.WriteAttributeString("type", "");
@@ -117,9 +262,11 @@ namespace ExportToXMLLib
                 myXml.WriteStartElement("document");
                 myXml.WriteAttributeString("pdmweid", "");
                 myXml.WriteAttributeString("aliasset", "Export To ERP");
-                
-                foreach (var item in part)
-                {      
+
+                foreach (var item in listBomShell)
+                {
+                    filePathForLog = item.FilePath;
+                    #region XML
                     // Конфигурация
                     myXml.WriteStartElement("configuration");
                     myXml.WriteAttributeString("name", item.Configuration);
@@ -157,13 +304,13 @@ namespace ExportToXMLLib
                     // Длина граничной рамки
                     myXml.WriteStartElement("attribute");
                     myXml.WriteAttributeString("name", "Длина граничной рамки");
-                    myXml.WriteAttributeString("value", item.WorkpieceY.ToString());
+                    myXml.WriteAttributeString("value", item.WorkpieceX.ToString());
                     myXml.WriteEndElement();
 
                     // Ширина граничной рамки
                     myXml.WriteStartElement("attribute");
                     myXml.WriteAttributeString("name", "Ширина граничной рамки");
-                    myXml.WriteAttributeString("value", item.WorkpieceX.ToString());
+                    myXml.WriteAttributeString("value", item.WorkpieceY.ToString());
                     myXml.WriteEndElement();
 
                     // Сгибы
@@ -172,9 +319,9 @@ namespace ExportToXMLLib
                     myXml.WriteAttributeString("value", item.Bend.ToString());
                     myXml.WriteEndElement();
 
-                    // Толщина листового материала
+                    // Толщина листового металла
                     myXml.WriteStartElement("attribute");
-                    myXml.WriteAttributeString("name", "Толщина листового материала");
+                    myXml.WriteAttributeString("name", "Толщина листового металла");
                     myXml.WriteAttributeString("value", item.ListThickness.ToString());
                     myXml.WriteEndElement();
 
@@ -202,6 +349,7 @@ namespace ExportToXMLLib
                     myXml.WriteAttributeString("value", item.LastVersion.ToString());
                     myXml.WriteEndElement();
                     myXml.WriteEndElement();// ' элемент Configuration name
+                    #endregion
                 }
 
                 myXml.WriteEndElement(); // ' элемент DOCUMENT
@@ -212,168 +360,55 @@ namespace ExportToXMLLib
                 myXml.Flush();
                 myXml.Close();
             }
-        }
-
-        /// <summary>
-        ///  Exports one doc with all configs into 1 xml file
-        /// </summary>
-        /// <param name="listBomShell"></param>
-        private void ExportPartsToXML2(IGrouping<string, MyBomShell> listBomShell)
-        {
-            string name = Path.GetFileNameWithoutExtension(listBomShell.Key);
-
-            var myXml = new XmlTextWriter(pathToSave + name + ".xml", Encoding.UTF8);
-            myXml.WriteStartDocument();
-            myXml.Formatting = Formatting.Indented;
-
-            myXml.WriteStartElement("xml");
-            myXml.WriteStartElement("transactions");
-            myXml.WriteStartElement("transaction");
-
-            myXml.WriteAttributeString("vaultName", "Vents-PDM");
-            myXml.WriteAttributeString("type", "");
-            myXml.WriteAttributeString("date", "");
-
-            // document
-            myXml.WriteStartElement("document");
-            myXml.WriteAttributeString("pdmweid", "");
-            myXml.WriteAttributeString("aliasset", "Export To ERP");
-
-            foreach (var item in listBomShell)
+            catch (Exception ex)
             {
-                #region XML
-                // Конфигурация
-                myXml.WriteStartElement("configuration");
-                myXml.WriteAttributeString("name", item.Configuration);
-
-                // Материал
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Материал");
-                myXml.WriteAttributeString("value", item.Material.ToString());
-                myXml.WriteEndElement();
-
-                // Наименование
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Наименование");
-                myXml.WriteAttributeString("value", item.Description);
-                myXml.WriteEndElement();
-
-                // Обозначение
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Обозначение");
-                myXml.WriteAttributeString("value", item.PartNumber);
-                myXml.WriteEndElement();
-
-                // Площадь покрытия
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Площадь покрытия");
-                myXml.WriteAttributeString("value", item.SurfaceArea.ToString());
-                myXml.WriteEndElement();
-
-                // Код_Материала
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Код_Материала");
-                myXml.WriteAttributeString("value", item.CodeMaterial.ToString());
-                myXml.WriteEndElement();
-
-                // Длина граничной рамки
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Длина граничной рамки");
-                myXml.WriteAttributeString("value", item.WorkpieceY.ToString());
-                myXml.WriteEndElement();
-
-                // Ширина граничной рамки
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Ширина граничной рамки");
-                myXml.WriteAttributeString("value", item.WorkpieceX.ToString());
-                myXml.WriteEndElement();
-
-                // Сгибы
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Сгибы");
-                myXml.WriteAttributeString("value", item.Bend.ToString());
-                myXml.WriteEndElement();
-
-                // Толщина листового материала
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Толщина листового материала");
-                myXml.WriteAttributeString("value", item.ListThickness.ToString());
-                myXml.WriteEndElement();
-
-                // PaintX
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "PaintX");
-                myXml.WriteAttributeString("value", item.PaintX.ToString());
-                myXml.WriteEndElement();
-
-                // PaintY
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "PaintY");
-                myXml.WriteAttributeString("value", item.PaintY.ToString());
-                myXml.WriteEndElement();
-
-                // PaintZ
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "PaintZ");
-                myXml.WriteAttributeString("value", item.PaintZ.ToString());
-                myXml.WriteEndElement();
-
-                // Версия
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Версия");
-                myXml.WriteAttributeString("value", item.LastVersion.ToString());
-                myXml.WriteEndElement();
-                myXml.WriteEndElement();// ' элемент Configuration name
-                #endregion
+                MessageObserver.Instance.SetMessage("Failed to ExportPartsToXML2, with error:  " + ex.Message + Environment.NewLine + filePathForLog, MessageType.Error);
             }
-
-            myXml.WriteEndElement(); // ' элемент DOCUMENT
-            myXml.WriteEndElement(); // ' элемент TRANSACTION
-            myXml.WriteEndElement(); // ' элемент TRANSACTIONS
-            myXml.WriteEndElement(); // ' элемент XML
-
-            myXml.Flush();
-            myXml.Close();
         }
 
         private void ExportToXMLWithSubAsmbl(List<MyBomShell> list, string nameAddintion, int param)
         {
-            int currentTreeLevel;
-            int helpCount = 0;
-            int previousTreeLevel = 0;
-            string type = null;
-            bool p = false;
-            bool f = false;
-
-            int l = Convert.ToInt32(list[0].FileName.Count()) - 7;
-            string fileName = list[0].FileName.Substring(0, l);
-            
-
-            var myXml = new XmlTextWriter(pathToSave + fileName + nameAddintion + ".xml", Encoding.UTF8);
-            myXml.WriteStartDocument();
-            myXml.Formatting = Formatting.Indented;
-
-            myXml.WriteStartElement("xml");
-            myXml.WriteStartElement("transactions");
-            myXml.WriteStartElement("transaction");
-
-            myXml.WriteAttributeString("vaultName", "Vents-PDM");
-            myXml.WriteAttributeString("type", "");
-            myXml.WriteAttributeString("date", "");
-
-            // document
-            myXml.WriteStartElement("document");
-            myXml.WriteAttributeString("pdmweid", "");
-            myXml.WriteAttributeString("aliasset", "Export To ERP");
-
-            foreach (var it in list)
+            string filePathForError = string.Empty;
+            try
             {
-                currentTreeLevel = (int)it.TreeLevel + param;
+                int currentTreeLevel;
+                int helpCount = 0;
+                int previousTreeLevel = 0;
+                string type = null;
+                bool p = false;
+                bool f = false;
 
-                if (helpCount != 0)
-                {                    
+                int l = Convert.ToInt32(list[0].FileName.Count()) - 7;
+                string fileName = list[0].FileName.Substring(0, l);
+
+
+
+                var myXml = new XmlTextWriter(pathToSave + fileName + nameAddintion + ".xml", Encoding.UTF8);
+                myXml.WriteStartDocument();
+                myXml.Formatting = Formatting.Indented;
+
+                myXml.WriteStartElement("xml");
+                myXml.WriteStartElement("transactions");
+                myXml.WriteStartElement("transaction");
+
+                myXml.WriteAttributeString("vaultName", "Vents-PDM");
+                myXml.WriteAttributeString("type", "");
+                myXml.WriteAttributeString("date", "");
+
+                // document
+                myXml.WriteStartElement("document");
+                myXml.WriteAttributeString("pdmweid", "");
+                myXml.WriteAttributeString("aliasset", "Export To ERP");
+
+                foreach (var it in list)
+                {
+                    filePathForError = it.FilePath;
+                    currentTreeLevel = (int)it.TreeLevel + param;
+
+                    if (helpCount != 0)
+                    {
                         if (previousTreeLevel > currentTreeLevel && type == "sldasm")//переход на уровень выше
-                        { 
+                        {
                             myXml.WriteEndElement(); //configurations 
                             myXml.WriteEndElement(); //configurations 
                             myXml.WriteEndElement(); //references
@@ -398,7 +433,7 @@ namespace ExportToXMLLib
                                 myXml.WriteEndElement();//references
                                 myXml.WriteEndElement();//configurations
                                 p = true;
-                            }         
+                            }
                         }
                         if (type == "sldasm" && previousTreeLevel == currentTreeLevel)
                         {
@@ -407,137 +442,143 @@ namespace ExportToXMLLib
                                 myXml.WriteEndElement();//configurations
                             }
                         }
-                    if (currentTreeLevel == 0 && type == "sldprt")
-                    {
-                        if (p == false)
+                        if (currentTreeLevel == 0 && type == "sldprt")
                         {
-                            if(f == false)
+                            if (p == false)
                             {
-                                myXml.WriteEndElement();//document alias
-                                myXml.WriteEndElement();//references
-                                myXml.WriteEndElement();//configurations
+                                if (f == false)
+                                {
+                                    myXml.WriteEndElement();//document alias
+                                    myXml.WriteEndElement();//references
+                                    myXml.WriteEndElement();//configurations
+                                }
                             }
                         }
+                        p = false;
+                        f = false;
+                        helpCount--;
                     }
-                    p = false;
-                    f = false;
-                    helpCount--;
-                }
 
-                #region XML
-                // Конфигурация
-                myXml.WriteStartElement("configuration");
-                myXml.WriteAttributeString("name", it.Configuration);
+                    #region XML
+                    // Конфигурация
+                    myXml.WriteStartElement("configuration");
+                    myXml.WriteAttributeString("name", it.Configuration);
 
-                // Версия
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Версия");
-                myXml.WriteAttributeString("value", it.LastVersion.ToString());
-                myXml.WriteEndElement();
+                    // Версия
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "Версия");
+                    myXml.WriteAttributeString("value", it.LastVersion.ToString());
+                    myXml.WriteEndElement();
 
-                // Масса
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Масса");
-                myXml.WriteAttributeString("value", it.Weight.ToString());
-                myXml.WriteEndElement();
+                    // Масса
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "Масса");
+                    myXml.WriteAttributeString("value", it.Weight.ToString());
+                    myXml.WriteEndElement();
 
-                // Наименование
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Наименование");
-                myXml.WriteAttributeString("value", it.Description);
-                myXml.WriteEndElement();
+                    // Наименование
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "Наименование");
+                    myXml.WriteAttributeString("value", it.Description);
+                    myXml.WriteEndElement();
 
-                // Обозначение
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Обозначение");
-                myXml.WriteAttributeString("value", it.PartNumber);
-                myXml.WriteEndElement();
+                    // Обозначение
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "Обозначение");
+                    myXml.WriteAttributeString("value", it.PartNumber);
+                    myXml.WriteEndElement();
 
-                // Раздел
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Раздел");
-                myXml.WriteAttributeString("value", it.Partition.ToString());
-                myXml.WriteEndElement();
+                    // Раздел
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "Раздел");
+                    myXml.WriteAttributeString("value", it.Partition.ToString());
+                    myXml.WriteEndElement();
 
-                // ERP code
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "ERP code");
-                myXml.WriteAttributeString("value", it.ErpCode.ToString());
-                myXml.WriteEndElement();
+                    // ERP code
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "ERP code");
+                    myXml.WriteAttributeString("value", it.ErpCode.ToString());
+                    myXml.WriteEndElement();
 
-                // Код_Материала
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Код_Материала");
-                myXml.WriteAttributeString("value", it.CodeMaterial.ToString());
-                myXml.WriteEndElement();
+                    // Код_Материала
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "Код_Материала");
+                    myXml.WriteAttributeString("value", it.CodeMaterial.ToString());
+                    myXml.WriteEndElement();
 
-                // Код Документа
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Код Документа");
-                myXml.WriteAttributeString("value", "");
-                myXml.WriteEndElement();
+                    // Код Документа
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "Код Документа");
+                    myXml.WriteAttributeString("value", "");
+                    myXml.WriteEndElement();
 
-                // Кол. Материала
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Кол. Материала");
-                myXml.WriteAttributeString("value", it.SummMaterial.ToString()); //it.Quantity.ToString(
-                myXml.WriteEndElement();
+                    // Кол. Материала
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "Кол. Материала");
+                    myXml.WriteAttributeString("value", it.SummMaterial.ToString()); //it.Quantity.ToString(
+                    myXml.WriteEndElement();
 
-                // Состояние 
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Состояние");
-                myXml.WriteAttributeString("value", "");
-                myXml.WriteEndElement();
+                    // Состояние 
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "Состояние");
+                    myXml.WriteAttributeString("value", "");
+                    myXml.WriteEndElement();
 
-                // Подсчет ссылок
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Подсчет ссылок");
-                myXml.WriteAttributeString("value", it.Quantity.ToString());
-                myXml.WriteEndElement();
+                    // Подсчет ссылок
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "Подсчет ссылок");
+                    myXml.WriteAttributeString("value", it.Quantity.ToString());
+                    myXml.WriteEndElement();
 
-                // Конфигурация
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Конфигурация");
-                myXml.WriteAttributeString("value", it.Configuration);
-                myXml.WriteEndElement();
+                    // Конфигурация
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "Конфигурация");
+                    myXml.WriteAttributeString("value", it.Configuration);
+                    myXml.WriteEndElement();
 
-                // Идентификатор
-                myXml.WriteStartElement("attribute");
-                myXml.WriteAttributeString("name", "Идентификатор");
-                myXml.WriteAttributeString("value", "");
-                myXml.WriteEndElement();
+                    // Идентификатор
+                    myXml.WriteStartElement("attribute");
+                    myXml.WriteAttributeString("name", "Идентификатор");
+                    myXml.WriteAttributeString("value", "");
+                    myXml.WriteEndElement();
 
-                #endregion
+                    #endregion
 
-                if (it.FileType == "sldasm")
-                {
-                    if (currentTreeLevel == 0)
+                    if (it.FileType == "sldasm")
                     {
-                        myXml.WriteStartElement("references");
-                        myXml.WriteStartElement("document");
-                        myXml.WriteAttributeString("pdmweid", "");
-                        myXml.WriteAttributeString("aliasset", "Export To ERP");
+                        if (currentTreeLevel == 0)
+                        {
+                            myXml.WriteStartElement("references");
+                            myXml.WriteStartElement("document");
+                            myXml.WriteAttributeString("pdmweid", "");
+                            myXml.WriteAttributeString("aliasset", "Export To ERP");
+                        }
+
+                        type = "sldasm";
                     }
+                    else if (it.FileType == "sldprt")
+                    {
+                        myXml.WriteEndElement();//configurations
+                        type = "sldprt";
+                    }
+                    helpCount++;
+                    previousTreeLevel = currentTreeLevel;
 
-                    type = "sldasm";
                 }
-                else if (it.FileType == "sldprt")
-                {
-                    myXml.WriteEndElement();//configurations
-                    type = "sldprt";
-                }
-                helpCount++;
-                previousTreeLevel = currentTreeLevel;
 
+                myXml.WriteEndElement(); // ' элемент DOCUMENT
+                myXml.WriteEndElement(); // ' элемент TRANSACTION
+                myXml.WriteEndElement(); // ' элемент TRANSACTIONS
+                myXml.WriteEndElement(); // ' элемент XML
+
+                myXml.Flush();
+                myXml.Close();
             }
-
-            myXml.WriteEndElement(); // ' элемент DOCUMENT
-            myXml.WriteEndElement(); // ' элемент TRANSACTION
-            myXml.WriteEndElement(); // ' элемент TRANSACTIONS
-            myXml.WriteEndElement(); // ' элемент XML
-
-            myXml.Flush();
-            myXml.Close();
+            catch(Exception e)
+            {
+                MessageObserver.Instance.SetMessage("Failed to ExportToXMLWithSubAsmbl, with error:  " + e.Message + System.Environment.NewLine + 
+                    filePathForError, MessageType.Error);
+            }
         }
 
 
@@ -588,7 +629,7 @@ namespace ExportToXMLLib
 
                         foreach (var refConfig in Configurations)
                         {
-                            EdmBomView bomView = EdmFile7.GetComputedBOM(BoomId, -1, refConfig, 3);
+                            EdmBomView bomView = EdmFile7.GetComputedBOM(BoomId, -1, refConfig, 2);
                             if (bomView == null)
                             {
                                 MessageObserver.Instance.SetMessage("Failed to get BOM: " + filePath);
